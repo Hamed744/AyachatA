@@ -1,14 +1,16 @@
 {
-  "name": "simple-http-proxy",
+  "name": "hf-proxy-render",
   "version": "1.0.0",
-  "description": "A simple HTTP proxy for Render.com",
-  "main": "server.js",
+  "description": "A proxy server for Hugging Face Gradio API to bypass filtering.",
+  "main": "index.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node index.js"
   },
   "dependencies": {
-    "express": "^4.17.1",
-    "cors": "^2.8.5",
-    "node-fetch": "^2.6.1"
+    "express": "^4.19.2",
+    "node-fetch": "^2.7.0"
+  },
+  "engines": {
+    "node": "18.x"
   }
 }
