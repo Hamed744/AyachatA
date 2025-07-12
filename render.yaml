@@ -1,17 +1,13 @@
 services:
-  # یک سایت استاتیک برای میزبانی فایل index.html شما
   - type: static
-    name: cohere-chat-frontend # یک نام دلخواه برای فرانت‌اند
+    name: cohere-chat-frontend
     env: static
-    # پوشه‌ای که فایل‌های استاتیک در آن قرار دارند.
-    # '.' به معنی پوشه ریشه پروژه است.
     staticPublishPath: .
     routes:
-      # این قانون مهم‌ترین بخش است:
-      # تمام درخواست‌هایی که به /api/... ارسال می‌شوند را به اسپیس Hugging Face هدایت می‌کند.
       - type: rewrite
         source: /api/:path*
         destination: https://coherelabs-c4ai-command.hf.space/:path*
 
-# این بخش به Render می‌گوید که برای ساخت پروژه نیازی به دستور خاصی نیست.
+# این خط به Render می‌گوید که نیازی به کامپایل یا ساخت پروژه نیست.
+# برای سایت‌های استاتیک ساده، این خط لازم است.
 buildCommand: ""
