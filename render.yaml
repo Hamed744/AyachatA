@@ -7,7 +7,5 @@ services:
       - type: rewrite
         source: /api/:path*
         destination: https://coherelabs-c4ai-command.hf.space/:path*
-
-# این خط به Render می‌گوید که نیازی به کامپایل یا ساخت پروژه نیست.
-# برای سایت‌های استاتیک ساده، این خط لازم است.
+        
 buildCommand: ""
