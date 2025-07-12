@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>چت‌بات Cohere (آماده برای Render)</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f0f2f5;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        .chat-container {
+            background-color: #fff;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 600px;
+            display: flex;
+            flex-direction: column;
+            height: 90vh;
+            max-height: 700px;
+        }
+        .chat-header {
+            background: linear-gradient(90deg, #4A90E2, #357ABD);
+            color: white;
+            padding: 16px;
+            text-align: center;
+            border-top-left-radius: 12px;
+            border-top-right-radius: 12px;
+            font-size: 1.1em;
+            font-weight: 600;
+        }
+        .chat-messages {
+            flex-grow: 1;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            background-color: #f7f9fc;
+        }
+        .message {
+            padding: 12px 18px;
+            border-radius: 20px;
+            max-width: 80%;
+            word-wrap: break-word;
+            white-space: pre-wrap;
+            line-height: 1.5;
+        }
+        .user-message {
+            background-color: #0084ff;
+            color: white;
+            align-self: flex-start;
+            border-bottom-left-radius: 5px;
+        }
+        .bot-message {
+            background-color: #e4e6eb;
+            color: #050505;
+            align-self: flex-end;
+            border-bottom-right-radius: 5px;
+        }
+        .error-message {
+            background-color: #ffebee;
+            color: #c62828;
+            border: 1px solid #ef5350;
+        }
+        .input-area {
+            padding: 10px;
+            border-top: 1px solid #ddd;
+            background-color: #fff;
+        }
+        #chatForm {
+            display: flex;
+            align-items: flex-end;
+            gap: 10px;
+        }
+        #userInput {
+            flex-grow: 1;
+            padding: 12px 18px;
+            border: 1px solid #ccc;
+            border-radius: 24px;
+            resize: none;
+            font-size: 16px;
+            font-family: inherit;
+            max-height: 120px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        #userInput:focus {
+            border-color: #0084ff;
+        }
+        #sendButton {
+            width: 48px; height: 48px;
+            background-color: #0084ff;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 22px;
+            flex-shrink: 0;
+            display: flex; align-items: center; justify-content: center;
+        }
+        #sendButton:disabled {
+            background-color: #a0c9ff;
+            cursor: not-allowed;
+        }
+        .status {
+            padding: 8px 15px;
+            font-size: 13px;
+            color: #65676b;
+            text-align: center;
+            height: 20px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="chat-container">
+    <div class="chat-header">چت‌بات Cohere</div>
+    <div class="chat-messages" id="chatMessages"></div>
+    <div class="status" id="status"></div>
+    <div class="input-area">
+        <form id="chatForm">
+            <textarea id="userInput" placeholder="پیام خود را بنویسید..." rows="1" disabled></textarea>
+            <button id="sendButton" type="submit" disabled>➤</button>
+        </form>
+    </div>
+</div>
+
+<script>
+    const chatMessages = document.getElementById('chatMessages');
+    const userInput = document.getElementById('userInput');
+    const sendButton = document.getElementById('sendButton');
+    const statusDiv = document.getElementById('status');
+    const chatForm = document.getElementById('chatForm');
+
+    // *** تغییر کلیدی برای Render ***
+    // این آدرس به پراکسی که در render.yaml تعریف شده اشاره می‌کند.
+    const API_PROXY_PATH = "/api"; 
+    
+    let conversationId = null;
+    let isBotReplying = false;
+
+    function displayMessage(text, sender, isError = false) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `message ${sender}-message ${isError ? 'error-message' : ''}`;
+        messageDiv.innerText = text;
+        chatMessages.appendChild(messageDiv);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+        return messageDiv;
+    }
+
+    function setUiLock(locked, statusText) {
+        isBotReplying = locked;
+        userInput.disabled = locked;
+        sendButton.disabled = locked;
+        statusDiv.innerText = statusText;
+        if (!locked) {
+            userInput.focus();
+        }
+    }
+
+    async function startNewConversation() {
+        setUiLock(true, 'در حال ایجاد گفتگوی جدید...');
+        chatMessages.innerHTML = '';
+        conversationId = null;
+
+        try {
+            const response = await fetch(`${API_PROXY_PATH}/conversation`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    model: "command-a-03-2025",
+                    preprompt: ""
+                })
+            });
+
+            if (!response.ok) throw new Error(`خطای شبکه: ${response.status}`);
+            
+            const data = await response.json();
+            conversationId = data.conversationId;
+            setUiLock(false, '');
+            displayMessage('سلام! چطور می‌تونم به شما کمک کنم؟', 'bot');
+
+        } catch (error) {
+            console.error('خطا:', error);
+            setUiLock(true, 'خطا در اتصال');
+            displayMessage(`خطا در ایجاد گفتگو: ${error.message}`, 'bot', true);
+        }
+    }
+
+    async function sendMessage() {
+        const messageText = userInput.value.trim();
+        if (!messageText || !conversationId || isBotReplying) return;
+
+        setUiLock(true, 'ربات در حال نوشتن است...');
+        displayMessage(messageText, 'user');
+        userInput.value = '';
+        userInput.style.height = 'auto';
+
+        const botMessageDiv = displayMessage('...', 'bot');
+
+        try {
+            const payload = {
+                id: crypto.randomUUID(),
+                inputs: messageText,
+                is_retry: false,
+                stream: true,
+                options: {
+                    use_cache: true,
+                    parameters: { 
+                        temperature: 0.7, top_p: 0.95, repetition_penalty: 1.2,
+                        top_k: 40, truncate: 1024, max_new_tokens: 2048,
+                        stop: ["\nUser:", "</s>"]
+                    }
+                }
+            };
+
+            const response = await fetch(`${API_PROXY_PATH}/conversation/${conversationId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`خطای سرور: ${response.status} - ${errorText}`);
+            }
+            
+            botMessageDiv.innerText = '';
+            
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop();
+
+                for (const line of lines) {
+                    if (line.startsWith('data:')) {
+                        try {
+                            const jsonData = JSON.parse(line.substring(5));
+                            if (jsonData.type === 'stream' && jsonData.token) {
+                                botMessageDiv.innerText += jsonData.token;
+                                chatMessages.scrollTop = chatMessages.scrollHeight;
+                            }
+                        } catch (e) {}
+                    }
+                }
+            }
+
+        } catch (error) {
+            console.error('خطا در ارسال پیام:', error);
+            botMessageDiv.innerText = `متاسفانه خطایی رخ داد: \n${error.message}`;
+            botMessageDiv.classList.add('error-message');
+        } finally {
+            setUiLock(false, '');
+        }
+    }
+    
+    chatForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        sendMessage();
+    });
+
+    userInput.addEventListener('input', () => {
+        userInput.style.height = 'auto';
+        userInput.style.height = (this.scrollHeight) + 'px';
+    });
+
+    document.addEventListener('DOMContentLoaded', startNewConversation);
+</script>
+
+</body>
+</html>
