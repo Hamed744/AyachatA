@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Render Proxy Direct Test</title>
+</head>
+<body>
+    <h1>Direct Test for AyaChat Render Proxy</h1>
+    <div id="messages" style="border:1px solid #ccc; height: 300px; overflow-y: scroll; padding: 10px;"></div>
+    <input type="text" id="input" placeholder="Type a message...">
+    <button onclick="sendMessage()">Send</button>
+    <script>
+        const messagesDiv = document.getElementById('messages');
+        const input = document.getElementById('input');
+        let chatHistory = [];
+        let session_hash = 'test_' + Math.random().toString(36).substring(2, 15);
+
+        function displayMessage(text, sender) {
+            messagesDiv.innerHTML += `<p><b>${sender}:</b> ${text}</p>`;
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        async function sendMessage() {
+            const message = input.value;
+            displayMessage(message, 'User');
+            input.value = '';
+
+            try {
+                // Step 1: Join queue
+                const joinRes = await fetch('/queue/join', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        data: [message, chatHistory.length > 0 ? chatHistory : null, null, null],
+                        fn_index: 3,
+                        session_hash: session_hash
+                    })
+                });
+                if (!joinRes.ok) throw new Error('Join failed');
+
+                // Step 2: Listen to SSE
+                const eventSource = new EventSource(`/queue/data?session_hash=${session_hash}`);
+                let botResponse = '';
+
+                eventSource.onmessage = (event) => {
+                    const data = JSON.parse(event.data);
+                    if (data.msg === 'process_generating' && data.output.data[0][0][2]) {
+                        botResponse += data.output.data[0][0][2];
+                        // Update UI here if you want streaming text
+                    }
+                    if (data.msg === 'process_completed') {
+                        chatHistory = data.output.data[1];
+                        const finalResponse = chatHistory[chatHistory.length - 1][1];
+                        displayMessage(finalResponse, 'Bot');
+                        eventSource.close();
+                    }
+                };
+            } catch (e) {
+                displayMessage(`Error: ${e.message}`, 'System');
+            }
+        }
+    </script>
+</body>
+</html>
